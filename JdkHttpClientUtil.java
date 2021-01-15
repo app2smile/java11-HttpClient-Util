@@ -58,7 +58,6 @@ import java.util.zip.GZIPInputStream;
  * 2.   为了确保准确,建议在jvm启动命令处配置. 配置格式: -Dkey=value
  * <br/><br/>
  * 如-Djdk.internal.httpclient.debug=true可开启debug调试
- *
  **/
 public class JdkHttpClientUtil {
 
@@ -263,18 +262,18 @@ public class JdkHttpClientUtil {
      * 发送post请求
      *
      * @param url                 请求地址
-     * @param urlEncodeMap        提交urlEncode表单数据时设置
+     * @param formDataMap         提交form表单数据时设置
      * @param json                发送json数据时设置
-     * @param multipartMap        上传表单数据  map的key为字段名 若是文件 map的value为Path类型 若为普通字段 value可以是基本类型
+     * @param multipartMap        上传类型的表单数据  map的key为字段名 若是文件 map的value为Path类型 若为普通字段 value可以是基本类型
      * @param headers             请求头map
      * @param timeOut             超时时间 秒
      * @param gzip                启用gzip
      * @param responseBodyHandler responseBodyHandler
      */
     public static <T> HttpResponse<T>
-    post(String url, Map<String, Object> urlEncodeMap, String json, Map<String, Object> multipartMap, Map<String, String> headers,
+    post(String url, Map<String, Object> formDataMap, String json, Map<String, Object> multipartMap, Map<String, String> headers,
          int timeOut, boolean gzip, HttpResponse.BodyHandler<T> responseBodyHandler) throws IOException, InterruptedException {
-        HttpRequest request = ofPostHttpRequest(url, urlEncodeMap, json, multipartMap, headers, timeOut, gzip);
+        HttpRequest request = ofPostHttpRequest(url, formDataMap, json, multipartMap, headers, timeOut, gzip);
         return DEFAULT_HTTP_CLIENT.send(request, responseBodyHandler);
     }
 
@@ -282,29 +281,29 @@ public class JdkHttpClientUtil {
      * 发送post异步请求
      *
      * @param url                 请求地址
-     * @param urlEncodeMap        提交urlEncode表单数据时设置
+     * @param formDataMap         提交form表单数据时设置
      * @param json                发送json数据时设置
-     * @param multipartMap        上传表单数据  map的key为字段名 若是文件 map的value为Path类型 若为普通字段 value可以是基本类型
+     * @param multipartMap        上传类型的表单数据  map的key为字段名 若是文件 map的value为Path类型 若为普通字段 value可以是基本类型
      * @param headers             请求头map
      * @param timeOut             超时时间 秒
      * @param gzip                启用gzip
      * @param responseBodyHandler responseBodyHandler
      */
     public static <T> CompletableFuture<HttpResponse<T>>
-    postAsync(String url, Map<String, Object> urlEncodeMap, String json, Map<String, Object> multipartMap, Map<String, String> headers,
+    postAsync(String url, Map<String, Object> formDataMap, String json, Map<String, Object> multipartMap, Map<String, String> headers,
               int timeOut, boolean gzip, HttpResponse.BodyHandler<T> responseBodyHandler) {
-        HttpRequest request = ofPostHttpRequest(url, urlEncodeMap, json, multipartMap, headers, timeOut, gzip);
+        HttpRequest request = ofPostHttpRequest(url, formDataMap, json, multipartMap, headers, timeOut, gzip);
         return DEFAULT_HTTP_CLIENT.sendAsync(request, responseBodyHandler);
     }
 
 
-    private static HttpRequest ofPostHttpRequest(String url, Map<String, Object> urlEncodeMap, String json, Map<String, Object> multipartMap,
+    private static HttpRequest ofPostHttpRequest(String url, Map<String, Object> formDataMap, String json, Map<String, Object> multipartMap,
                                                  Map<String, String> headers, int timeOut, boolean gzip) {
-        boolean urlEncodeMapNotNull = urlEncodeMap != null && !urlEncodeMap.isEmpty();
+        boolean formDataMapNotNull = formDataMap != null && !formDataMap.isEmpty();
         boolean jsonNotNull = json != null && !json.isBlank();
         boolean multipartMapNotNull = multipartMap != null && !multipartMap.isEmpty();
 
-        if ((urlEncodeMapNotNull ? 1 : 0) + (jsonNotNull ? 1 : 0) + (multipartMapNotNull ? 1 : 0) > 1) {
+        if ((formDataMapNotNull ? 1 : 0) + (jsonNotNull ? 1 : 0) + (multipartMapNotNull ? 1 : 0) > 1) {
             throw new RuntimeException("发送post请求时,无法判断要发送哪种请求类型!");
         }
 
@@ -322,9 +321,9 @@ public class JdkHttpClientUtil {
         }
 
         contentTypeValue = contentTypeValue != null && !contentTypeValue.isBlank() ? contentTypeValue : jsonNotNull ? "application/json; charset=UTF-8"
-                : urlEncodeMapNotNull ? "application/x-www-form-urlencoded; charset=UTF-8" : null;
-        HttpRequest.BodyPublisher bodyPublisher = !(jsonNotNull || urlEncodeMapNotNull) ? HttpRequest.BodyPublishers.noBody()
-                : HttpRequest.BodyPublishers.ofString(jsonNotNull ? json : mapToQueryString(urlEncodeMap, true));
+                : formDataMapNotNull ? "application/x-www-form-urlencoded; charset=UTF-8" : null;
+        HttpRequest.BodyPublisher bodyPublisher = !(jsonNotNull || formDataMapNotNull) ? HttpRequest.BodyPublishers.noBody()
+                : HttpRequest.BodyPublishers.ofString(jsonNotNull ? json : mapToQueryString(formDataMap, true));
 
         if (multipartMapNotNull) {
             String boundary = BOUNDARY_PREFIX + UUID.randomUUID().toString().replace("-", "");
