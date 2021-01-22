@@ -177,7 +177,7 @@ public class JdkHttpClientUtil {
             }
             url += prefix + queryStr;
         }
-        return createHttpRequestBuilder(url, headers, timeOut, gzip).build();
+        return ofHttpRequestBuilder(url, headers, timeOut, gzip).build();
     }
 
 
@@ -328,10 +328,10 @@ public class JdkHttpClientUtil {
         if (multipartMapNotNull) {
             String boundary = BOUNDARY_PREFIX + UUID.randomUUID().toString().replace("-", "");
             contentTypeValue = "multipart/form-data; boundary=" + boundary;
-            bodyPublisher = ofMimeMultipartData(multipartMap, boundary);
+            bodyPublisher = ofMimeMultipartBodyPublisher(multipartMap, boundary);
         }
 
-        HttpRequest.Builder builder = createHttpRequestBuilder(url, headers, timeOut, gzip);
+        HttpRequest.Builder builder = ofHttpRequestBuilder(url, headers, timeOut, gzip);
         if (contentTypeValue != null && !contentTypeValue.isBlank()) {
             builder.setHeader(CONTENT_TYPE, contentTypeValue.strip());
         }
@@ -364,7 +364,7 @@ public class JdkHttpClientUtil {
      * @param timeOut 超时时间,秒
      * @param gzip    启用gzip
      */
-    private static HttpRequest.Builder createHttpRequestBuilder(String url, Map<String, String> headers, int timeOut, boolean gzip) {
+    private static HttpRequest.Builder ofHttpRequestBuilder(String url, Map<String, String> headers, int timeOut, boolean gzip) {
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url));
         if (gzip) {
             String acceptEncodingValue = null;
@@ -421,12 +421,12 @@ public class JdkHttpClientUtil {
     }
 
     /**
-     * 根据map生成mimeMultipartData
+     * 根据map boundary 构造mimeMultipartBodyPublisher
      *
      * @param map      map的key为字段名; value:若是文件为Path类型,若为普通字段是基本类型
      * @param boundary 边界
      */
-    private static HttpRequest.BodyPublisher ofMimeMultipartData(Map<String, Object> map, String boundary) {
+    private static HttpRequest.BodyPublisher ofMimeMultipartBodyPublisher(Map<String, Object> map, String boundary) {
         var byteArrays = new ArrayList<byte[]>();
         byte[] separator = ("--" + boundary + "\r\nContent-Disposition: form-data; name=").getBytes(StandardCharsets.UTF_8);
         map.forEach((k, v) -> {
