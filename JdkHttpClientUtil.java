@@ -25,6 +25,7 @@ import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -164,11 +165,26 @@ public class JdkHttpClientUtil {
                                                 int timeOut, boolean gzip) {
         String strip = url.strip();
         url = strip.endsWith("/") ? strip.substring(0, strip.length() - 1) : strip;
-        String queryStr = mapToQueryString(params, false);
+        if(params == null){
+            params = new HashMap<>();
+        }
+        String q = "?";
+        String link = "&";
+        int i = url.indexOf(q);
+        if(i != -1 && i != url.length() -1){
+            String paramsStr = url.substring(i+1);
+            for(String s:paramsStr.split(link)){
+                String[] pair = s.split("=");
+                if(pair.length==2){
+                    params.put(pair[0], pair[1]);
+                }
+            }
+            url = url.substring(0,i);
+        }
+
+        String queryStr = mapToQueryString(params, true);
         if (!queryStr.isEmpty()) {
             String prefix = "";
-            String q = "?";
-            String link = "&";
             if (!url.endsWith(q) && !url.endsWith(link)) {
                 prefix = q;
                 if (url.contains(q)) {
@@ -412,7 +428,6 @@ public class JdkHttpClientUtil {
             String name = k.strip();
             String value = String.valueOf(v).strip();
             if (urlEncode) {
-                name = URLEncoder.encode(name, StandardCharsets.UTF_8);
                 value = URLEncoder.encode(value, StandardCharsets.UTF_8);
             }
             sb.append(name).append("=").append(value);
@@ -620,6 +635,15 @@ public class JdkHttpClientUtil {
 
 
     public static void main(String[] args) {
+
+//        try {
+//            HttpResponse<String> stringHttpResponse = postFormData("http://127.0.0.1:8089/api/file/testDate", Map.of("date","2021-01-29 10:07:25"));
+//            System.out.println(stringHttpResponse.body());
+//            HttpResponse<String> res = postFormData("http://127.0.0.1:8089/api/file/testLocalDateTime", Map.of("date","2021-01-29 10:07:25"));
+//            System.out.println(res.body());
+//        } catch (IOException | InterruptedException e) {
+//            e.printStackTrace();
+//        }
 
 //        // 测试get请求
 //        List<String> getList = new ArrayList<>();
@@ -840,6 +864,27 @@ public class JdkHttpClientUtil {
 //
 //        // block calling thread for demo purposes
 //        asyncRequests.forEach(CompletableFuture::join);
+
+//        HttpResponse<String> stringHttpResponse = null;
+//        try {
+//            stringHttpResponse = JdkHttpClientUtil.get("http://localhost:8099/get?aa=哈哈 ,谢谢");
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
+//        System.out.println(stringHttpResponse.body());
+//
+//
+//        try {
+//            HttpResponse<String> stringHttpResponse1 = JdkHttpClientUtil.get("http://localhost:8089/api/file/testHttp?name=你好  呵呵,");
+//            System.out.println(stringHttpResponse1.body());
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
+
 
     }
 
