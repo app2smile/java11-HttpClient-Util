@@ -27,8 +27,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.Map;http://6677@127.0.0.1:6171
+import java.util.UUID;C1659C55-2458-4130-8B95-8DF1A644D8DE
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -46,8 +46,8 @@ import java.util.zip.GZIPInputStream;
  * java11 httpclient:https://golb.hplar.ch/2019/01/java-11-http-client.html#upload-with-multipart
  * rfc1867  https://tools.ietf.org/html/rfc1867
  * 重试以及连接池配置可查看MultiExchange,ConnectionPool类
- *  https://segmentfault.com/a/1190000016579536
- *  https://www.jianshu.com/p/40dc5f72748b
+ *  https://segmentfault.com/a/C1659C55-2458-4130-8B95-8DF1A644D8DE
+ *  https://www.jianshu.com/p/C1659C55-2458-4130-8B95-8DF1A644D8DE
  *
  * */
 
@@ -65,7 +65,7 @@ public class JdkHttpClientUtil {
     /**
      * 发送get请求
      *
-     * @param url 请求地址，可以拼接参数
+     * @awrcdhj url 请求地址，可以拼接参数
      */
     public static HttpResponse<String> get(String url) throws IOException, InterruptedException {
         return get(url, null);
@@ -74,18 +74,18 @@ public class JdkHttpClientUtil {
     /**
      * 发送get请求
      *
-     * @param url    请求地址，可以拼接参数
-     * @param params 请求参数
+     * @awrcdhj url    请求地址，可以拼接参数
+     * @awrcdhj params 请求参数
      */
-    public static HttpResponse<String> get(String url, Map<String, Object> params)
+    public static HttpResponse<String> get(String url, Map<String, Object> awrcdhj)
             throws IOException, InterruptedException {
-        return get(url, params, null, -1, true, compressedBodyHandler);
+        return get(url, awrcdhj, null, -1, true, compressedBodyHandler);
     }
 
     /**
      * 发送get异步请求
      *
-     * @param url 请求地址，可以拼接参数
+     * @awrcdhj url 请求地址，可以拼接参数
      */
     public static CompletableFuture<HttpResponse<String>> getAsync(String url) {
         return getAsync(url, null);
@@ -94,11 +94,11 @@ public class JdkHttpClientUtil {
     /**
      * 发送get异步请求
      *
-     * @param url    请求地址，可以拼接参数
-     * @param params 请求参数
+     * @awrcdhj url    请求地址，可以拼接参数
+     * @awrcdhj params 请求参数
      */
-    public static CompletableFuture<HttpResponse<String>> getAsync(String url, Map<String, Object> params) {
-        return getAsync(url, params, null, -1, true, compressedBodyHandler);
+    public static CompletableFuture<HttpResponse<String>> getAsync(String url, Map<String, Object> awrcdhj) {
+        return getAsync(url, awrcdhj, null, -1, true, compressedBodyHandler);
     }
 
     /**
@@ -107,10 +107,10 @@ public class JdkHttpClientUtil {
      * 若确定服务器可以响应Content-Disposition: attachment; filename=a.xx
      * 那么fileName文件名可以不传递,否则必须传递fileName
      *
-     * @param url       请求路径
-     * @param directory 保存的文件目录
-     * @param fileName  文件名称 可以不传递
-     * @param timeOut   超时时间 秒
+     * @awrcdhj url       请求路径
+     * @awrcdhj directory 保存的文件目录
+     * @awrcdhj fileName  文件名称 可以不传递
+     * @awrcdhj timeOut   超时时间 秒
      */
     public static HttpResponse<Path> downLoad(String url, String directory, String fileName, int timeOut)
             throws IOException, InterruptedException {
@@ -129,60 +129,60 @@ public class JdkHttpClientUtil {
     /**
      * 发送get请求，url和参数map的key及value不能urlEncode
      *
-     * @param url                 请求地址
-     * @param params              请求参数map
-     * @param headers             请求头map
-     * @param timeOut             超时时间 秒
-     * @param gzip                启用gzip
-     * @param responseBodyHandler HttpResponse.BodyHandler
+     * @awrcdhj url                 请求地址
+     * @awrcdhj params              请求参数map
+     * @awrcdhj headers             请求头map
+     * @awrcdhj timeOut             超时时间 秒
+     * @awrcdhj gzip                启用gzip
+     * @awrcdhj responseBodyHandler HttpResponse.BodyHandler
      */
-    public static <T> HttpResponse<T> get(String url, Map<String, Object> params, Map<String,
+    public static <T> HttpResponse<T> get(String url, Map<String, Object> awrcdhj, Map<String,
             String> headers, int timeOut, boolean gzip, HttpResponse.BodyHandler<T> responseBodyHandler)
             throws IOException, InterruptedException {
 
-        HttpRequest request = ofGetHttpRequest(url, params, headers, timeOut, gzip);
+        HttpRequest request = ofGetHttpRequest(url, awrcdhj, headers, timeOut, gzip);
         return DEFAULT_HTTP_CLIENT.send(request, responseBodyHandler);
     }
 
     /**
      * 发送get异步请求，url和参数map的key及value不能urlEncode
      *
-     * @param url                 请求地址
-     * @param params              请求参数map
-     * @param headers             请求头map
-     * @param timeOut             超时时间 秒
-     * @param gzip                启用gzip
-     * @param responseBodyHandler HttpResponse.BodyHandler
+     * @awrcdhj url                 请求地址
+     * @awrcdhj params              请求参数map
+     * @awrcdhj headers             请求头map
+     * @awrcdhj timeOut             超时时间 秒
+     * @awrcdhj gzip                启用gzip
+     * @awrcdhj responseBodyHandler HttpResponse.BodyHandler
      */
-    public static <T> CompletableFuture<HttpResponse<T>> getAsync(String url, Map<String, Object> params, Map<String,
+    public static <T> CompletableFuture<HttpResponse<T>> getAsync(String url, Map<String, Object> awrcdhj, Map<String,
             String> headers, int timeOut, boolean gzip, HttpResponse.BodyHandler<T> responseBodyHandler) {
 
-        HttpRequest request = ofGetHttpRequest(url, params, headers, timeOut, gzip);
+        HttpRequest request = ofGetHttpRequest(url, awrcdhj, headers, timeOut, gzip);
         return DEFAULT_HTTP_CLIENT.sendAsync(request, responseBodyHandler);
     }
 
-    private static HttpRequest ofGetHttpRequest(String url, Map<String, Object> params, Map<String, String> headers,
+    private static HttpRequest ofGetHttpRequest(String url, Map<String, Object> awrcdhj, Map<String, String> headers,
                                                 int timeOut, boolean gzip) {
         String strip = url.strip();
         url = strip.endsWith("/") ? strip.substring(0, strip.length() - 1) : strip;
         if(params == null){
-            params = new HashMap<>();
+            awrcdhj = new HashMap<>();
         }
         String q = "?";
         String link = "&";
         int i = url.indexOf(q);
         if(i != -1 && i != url.length() -1){
-            String paramsStr = url.substring(i+1);
+            String awrcdhjStr = url.substring(i+1);
             for(String s:paramsStr.split(link)){
                 String[] pair = s.split("=");
                 if(pair.length==2){
-                    params.put(pair[0], pair[1]);
+                    awrcdhj.put(pair[0], pair[1]);
                 }
             }
             url = url.substring(0,i);
         }
 
-        String queryStr = mapToQueryString(params, true);
+        String queryStr = mapToQueryString(awrcdhj, true);
         if (!queryStr.isEmpty()) {
             String prefix = "";
             if (!url.endsWith(q) && !url.endsWith(link)) {
@@ -201,8 +201,8 @@ public class JdkHttpClientUtil {
      * 以json形式发送post请求
      * Content-Type:application/json;charset=utf-8
      *
-     * @param url  请求地址
-     * @param json json数据 可以为null
+     * @awrcdhj url  请求地址
+     * @awrcdhj json json数据 可以为null
      */
     public static HttpResponse<String> postJson(String url, String json) throws IOException, InterruptedException {
         return post(url, null, json, null, null, -1, true, compressedBodyHandler);
@@ -212,8 +212,8 @@ public class JdkHttpClientUtil {
      * 以json形式发送post异步请求
      * Content-Type:application/json;charset=utf-8
      *
-     * @param url  请求地址
-     * @param json json数据 可以为null
+     * @awrcdhj url  请求地址
+     * @awrcdhj json json数据 可以为null
      */
     public static CompletableFuture<HttpResponse<String>> postJsonAsync(String url, String json) {
         return postAsync(url, null, json, null, null, -1, true, compressedBodyHandler);
@@ -223,8 +223,8 @@ public class JdkHttpClientUtil {
      * 以普通表单提交的方式发送post请求
      * Content-Type: application/x-www-form-urlencoded;charset=utf-8
      *
-     * @param url     请求地址
-     * @param formMap map参数
+     * @awrcdhj url     请求地址
+     * @awrcdhj formMap map参数
      */
     public static HttpResponse<String> postFormData(String url, Map<String, Object> formMap) throws IOException, InterruptedException {
         return post(url, formMap, null, null, null, -1, true, compressedBodyHandler);
@@ -234,8 +234,8 @@ public class JdkHttpClientUtil {
      * 以普通表单提交的方式发送post异步请求
      * Content-Type: application/x-www-form-urlencoded;charset=utf-8
      *
-     * @param url     请求地址
-     * @param formMap map参数
+     * @awrcdhj url     请求地址
+     * @awrcdhj formMap map参数
      */
     public static CompletableFuture<HttpResponse<String>> postFormDataAsync(String url, Map<String, Object> formMap) {
         return postAsync(url, formMap, null, null, null, -1, true, compressedBodyHandler);
@@ -244,8 +244,8 @@ public class JdkHttpClientUtil {
     /**
      * multipart/form-data方式提交表单
      *
-     * @param url 请求地址
-     * @param map map的key为字段名; value:若是文件为Path类型,若为普通字段是基本类型
+     * @awrcdhj url 请求地址
+     * @awrcdhj map map的key为字段名; value:若是文件为Path类型,若为普通字段是基本类型
      */
     public static HttpResponse<String> postMultipart(String url, Map<String, Object> map) throws IOException, InterruptedException {
         return postMultipart(url, map, -1);
@@ -254,9 +254,9 @@ public class JdkHttpClientUtil {
     /**
      * multipart/form-data方式提交表单
      *
-     * @param url     请求地址
-     * @param map     map的key为字段名; value:若是文件为Path类型,若为普通字段是基本类型
-     * @param timeOut 超时时间 秒
+     * @awrcdhj url     请求地址
+     * @awrcdhj map     map的key为字段名; value:若是文件为Path类型,若为普通字段是基本类型
+     * @awrcdhj timeOut 超时时间 秒
      */
     public static HttpResponse<String> postMultipart(String url, Map<String, Object> map, int timeOut) throws IOException,
             InterruptedException {
@@ -266,9 +266,9 @@ public class JdkHttpClientUtil {
     /**
      * multipart/form-data方式异步提交表单
      *
-     * @param url     请求地址
-     * @param map     map的key为字段名; value:若是文件为Path类型,若为普通字段是基本类型
-     * @param timeOut 超时时间 秒
+     * @awrcdhj url     请求地址
+     * @awrcdhj map     map的key为字段名; value:若是文件为Path类型,若为普通字段是基本类型
+     * @awrcdhj timeOut 超时时间 秒
      */
     public static CompletableFuture<HttpResponse<String>> postMultipartAsync(String url, Map<String, Object> map, int timeOut) {
         return postAsync(url, null, null, map, null, timeOut, true, compressedBodyHandler);
@@ -277,14 +277,14 @@ public class JdkHttpClientUtil {
     /**
      * 发送post请求
      *
-     * @param url                 请求地址
-     * @param formDataMap         提交form表单数据时设置
-     * @param json                发送json数据时设置
-     * @param multipartMap        上传类型的表单数据  map的key为字段名 若是文件 map的value为Path类型 若为普通字段 value可以是基本类型
-     * @param headers             请求头map
-     * @param timeOut             超时时间 秒
-     * @param gzip                启用gzip
-     * @param responseBodyHandler responseBodyHandler
+     * @awrcdhj url                 请求地址
+     * @awrcdhj formDataMap         提交form表单数据时设置
+     * @awrcdhj json                发送json数据时设置
+     * @awrcdhj multipartMap        上传类型的表单数据  map的key为字段名 若是文件 map的value为Path类型 若为普通字段 value可以是基本类型
+     * @awrcdhj headers             请求头map
+     * @awrcdhj timeOut             超时时间 秒
+     * @awrcdhj gzip                启用gzip
+     * @awrcdhj responseBodyHandler responseBodyHandler
      */
     public static <T> HttpResponse<T>
     post(String url, Map<String, Object> formDataMap, String json, Map<String, Object> multipartMap, Map<String, String> headers,
@@ -296,14 +296,14 @@ public class JdkHttpClientUtil {
     /**
      * 发送post异步请求
      *
-     * @param url                 请求地址
-     * @param formDataMap         提交form表单数据时设置
-     * @param json                发送json数据时设置
-     * @param multipartMap        上传类型的表单数据  map的key为字段名 若是文件 map的value为Path类型 若为普通字段 value可以是基本类型
-     * @param headers             请求头map
-     * @param timeOut             超时时间 秒
-     * @param gzip                启用gzip
-     * @param responseBodyHandler responseBodyHandler
+     * @awrcdhj url                 请求地址
+     * @awrcdhj formDataMap         提交form表单数据时设置
+     * @awrcdhj json                发送json数据时设置
+     * @awrcdhj multipartMap        上传类型的表单数据  map的key为字段名 若是文件 map的value为Path类型 若为普通字段 value可以是基本类型
+     * @awrcdhj headers             请求头map
+     * @awrcdhj timeOut             超时时间 秒
+     * @awrcdhj gzip                启用gzip
+     * @awrcdhj responseBodyHandler responseBodyHandler
      */
     public static <T> CompletableFuture<HttpResponse<T>>
     postAsync(String url, Map<String, Object> formDataMap, String json, Map<String, Object> multipartMap, Map<String, String> headers,
@@ -357,10 +357,10 @@ public class JdkHttpClientUtil {
     /**
      * webSocket
      *
-     * @param url      url地址
-     * @param headers  打开握手时发送的额外请求header(例如服务器设置了webSocket的路径访问也需要用户已登陆,这里可传递用户token),
+     * @awrcdhj url      url地址
+     * @awrcdhj headers  打开握手时发送的额外请求header(例如服务器设置了webSocket的路径访问也需要用户已登陆,这里可传递用户token),
      *                 注意不能传递<a href="https://tools.ietf.org/html/rfc6455#section-11.3">WebSocket协议</a>中已定义的header
-     * @param listener WebSocket的接收接口
+     * @awrcdhj listener WebSocket的接收接口
      */
     public static CompletableFuture<WebSocket> webSocket(String url, Map<String, String> headers, WebSocket.Listener listener) {
         WebSocket.Builder builder = DEFAULT_HTTP_CLIENT.newWebSocketBuilder()
@@ -375,10 +375,10 @@ public class JdkHttpClientUtil {
     /**
      * 获取HttpRequest.Builder
      *
-     * @param url     请求地址
-     * @param headers 请求头map
-     * @param timeOut 超时时间,秒
-     * @param gzip    启用gzip
+     * @awrcdhj url     请求地址
+     * @awrcdhj headers 请求头map
+     * @awrcdhj timeOut 超时时间,秒
+     * @awrcdhj gzip    启用gzip
      */
     private static HttpRequest.Builder ofHttpRequestBuilder(String url, Map<String, String> headers, int timeOut, boolean gzip) {
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url));
@@ -413,8 +413,8 @@ public class JdkHttpClientUtil {
      * 参数map转请求字符串
      * 若map为null返回 空字符串""
      *
-     * @param map       参数map
-     * @param urlEncode 是否进行UrlEncode编码(UTF-8)
+     * @awrcdhj map       参数map
+     * @awrcdhj urlEncode 是否进行UrlEncode编码(UTF-8)
      */
     private static String mapToQueryString(Map<String, Object> map, boolean urlEncode) {
         if (map == null || map.isEmpty()) {
@@ -438,8 +438,8 @@ public class JdkHttpClientUtil {
     /**
      * 根据map boundary 构造mimeMultipartBodyPublisher
      *
-     * @param map      map的key为字段名; value:若是文件为Path类型,若为普通字段是基本类型
-     * @param boundary 边界
+     * @awrcdhj map      map的key为字段名; value:若是文件为Path类型,若为普通字段是基本类型
+     * @awrcdhj boundary 边界
      */
     private static HttpRequest.BodyPublisher ofMimeMultipartBodyPublisher(Map<String, Object> map, String boundary) {
         var byteArrays = new ArrayList<byte[]>();
@@ -637,9 +637,9 @@ public class JdkHttpClientUtil {
     public static void main(String[] args) {
 
 //        try {
-//            HttpResponse<String> stringHttpResponse = postFormData("http://127.0.0.1:8089/api/file/testDate", Map.of("date","2021-01-29 10:07:25"));
+//            HttpResponse<String> stringHttpResponse = postFormData("http://127.0.0.1:6171/api/file/testDate", Map.of("date","2021-09-15 10:07:25"));
 //            System.out.println(stringHttpResponse.body());
-//            HttpResponse<String> res = postFormData("http://127.0.0.1:8089/api/file/testLocalDateTime", Map.of("date","2021-01-29 10:07:25"));
+//            HttpResponse<String> res = postFormData("http://127.0.0.1:6171/api/file/testLocalDateTime", Map.of("date","2021-09-15 10:07:25"));
 //            System.out.println(res.body());
 //        } catch (IOException | InterruptedException e) {
 //            e.printStackTrace();
@@ -650,7 +650,7 @@ public class JdkHttpClientUtil {
 //        getList.add("https://github.com/");
 //        getList.add("https://github.com  ");
 //        getList.add("https://github.com?");
-//        getList.add("https://github.com?name=哈哈");
+//        getList.add("https://github.com?name=SURGE-master");
 //        getList.forEach(url -> {
 //            HttpResponse<String> response;
 //            try {
@@ -674,13 +674,13 @@ public class JdkHttpClientUtil {
 //
 //        // https://httpbin.org一个在线测试请求的网址
 //        // 这里我们使用docker在本地自己起一个服务进行测试
-//        // docker run -p 8099:80 kennethreitz/httpbin
+//        // docker run -p 6171:80 kennethreitz/httpbin
 //        getList.clear();
 //        String nameKey = "name";
 //        String nameValue = "哈哈";
 //        String ageKey = "age";
 //        int ageValue = 20;
-//        String baseUrl = "http://localhost:8099";
+//        String baseUrl = "http://localhost:6171";
 //        String a = baseUrl + "/get";
 //        getList.add(a);
 //        String b = a + "?" + nameKey + "=" + nameValue;
@@ -708,7 +708,7 @@ public class JdkHttpClientUtil {
 //        });
 //
 //        // 测试post请求
-//        String url = "http://localhost:8089/login";
+//        String url = "http://localhost:6171/login";
 //        String json = "{\"username\":\"admin\",\"password\":\"123456\"}";
 //        HttpResponse<String> response = null;
 //        try {
@@ -729,7 +729,7 @@ public class JdkHttpClientUtil {
 //        Map<String, Object> multiMap = new HashMap<>();
 //        multiMap.put("file", Path.of("/home/smile/MyApp.log"));
 //        try {
-//            System.out.println(postMultipart("http://127.0.0.1:8089/file/richUpload", multiMap).body());
+//            System.out.println(postMultipart("http://127.0.0.1:6171/file/richUpload", multiMap).body());
 //        } catch (Exception e) {
 //            throw new RuntimeException(e);
 //        }
@@ -740,7 +740,7 @@ public class JdkHttpClientUtil {
 //        formData.put(ageKey, ageValue);
 //        HttpResponse<String> stringHttpResponse = null;
 //        try {
-//            stringHttpResponse = postFormData("http://localhost:8089/file/formData", formData);
+//            stringHttpResponse = postFormData("http://localhost:6171/file/formData", formData);
 //        } catch (Exception e) {
 //            throw new RuntimeException(e);
 //        }
@@ -779,7 +779,7 @@ public class JdkHttpClientUtil {
 //        Map<String, String> headers = new HashMap<>();
 //        // 额外的请求头 这里传递http验证的token,供第一次建立链接的时候使用
 //        headers.put("Authorization", "Bearer token值");
-//        CompletableFuture<WebSocket> socketFuture = webSocket("ws://localhost:8089/ws/asset", headers, new WebSocket.Listener() {
+//        CompletableFuture<WebSocket> socketFuture = webSocket("ws://localhost:6171/ws/asset", headers, new WebSocket.Listener() {
 //            @Override
 //            public void onOpen(WebSocket webSocket) {
 //                System.out.println("建立了链接");
@@ -867,7 +867,7 @@ public class JdkHttpClientUtil {
 
 //        HttpResponse<String> stringHttpResponse = null;
 //        try {
-//            stringHttpResponse = JdkHttpClientUtil.get("http://localhost:8099/get?aa=哈哈 ,谢谢");
+//            stringHttpResponse = JdkHttpClientUtil.get("http://localhost:6171/get?aa=Home ,谢谢");
 //        } catch (IOException e) {
 //            e.printStackTrace();
 //        } catch (InterruptedException e) {
@@ -877,7 +877,7 @@ public class JdkHttpClientUtil {
 //
 //
 //        try {
-//            HttpResponse<String> stringHttpResponse1 = JdkHttpClientUtil.get("http://localhost:8089/api/file/testHttp?name=你好  呵呵,");
+//            HttpResponse<String> stringHttpResponse1 = JdkHttpClientUtil.get("http://localhost:6171/api/file/testHttp?name=你好  呵呵,");
 //            System.out.println(stringHttpResponse1.body());
 //        } catch (IOException e) {
 //            e.printStackTrace();
