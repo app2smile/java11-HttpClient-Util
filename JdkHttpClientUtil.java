@@ -1,19 +1,17 @@
-package com.zwb.jwtdemo.util;
+package smile;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
+import java.io.*;
 import java.net.URI;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.net.http.WebSocket;
+import java.net.http.*;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -24,14 +22,13 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.zip.GZIPInputStream;
 
 
@@ -53,33 +50,34 @@ import java.util.zip.GZIPInputStream;
 
 
 /**
- * Http工具类，基于jdk11正式启用的HttpClient<br/><br/>
+ * Http工具类，基于jdk17
  * 若要配置系统变量以控制Http请求,须在jdk.internal.net.http.common.Utils类加载之前配置!<br/>
  * 1.   在httpclient实例创建之前通过System.setProperty配置<br/>
  * 2.   为了确保准确,建议在jvm启动命令处配置. 配置格式: -Dkey=value
  * <br/><br/>
  * 如-Djdk.internal.httpclient.debug=true可开启debug调试
  **/
-public class JdkHttpClientUtil {
+@Slf4j
+public class HttpUtil {
 
     /**
      * 发送get请求
      *
-     * @param url 请求地址，可以拼接参数
+     * @param url 请求url,可带参
      */
-    public static HttpResponse<String> get(String url) throws IOException, InterruptedException {
+    public static HttpResult<String> get(String url) throws IOException, InterruptedException {
         return get(url, null);
     }
 
     /**
      * 发送get请求
      *
-     * @param url    请求地址，可以拼接参数
+     * @param url    请求地址
      * @param params 请求参数
      */
-    public static HttpResponse<String> get(String url, Map<String, Object> params)
+    public static HttpResult<String> get(String url, Map<String, String> params)
             throws IOException, InterruptedException {
-        return get(url, params, null, -1, true, compressedBodyHandler);
+        return getWithGzip(url, params, null, -1, STRING_BODY_HANDLER);
     }
 
     /**
@@ -87,18 +85,18 @@ public class JdkHttpClientUtil {
      *
      * @param url 请求地址，可以拼接参数
      */
-    public static CompletableFuture<HttpResponse<String>> getAsync(String url) {
+    public static CompletableFuture<HttpResult<String>> getAsync(String url) {
         return getAsync(url, null);
     }
 
     /**
      * 发送get异步请求
      *
-     * @param url    请求地址，可以拼接参数
+     * @param url    请求地址
      * @param params 请求参数
      */
-    public static CompletableFuture<HttpResponse<String>> getAsync(String url, Map<String, Object> params) {
-        return getAsync(url, params, null, -1, true, compressedBodyHandler);
+    public static CompletableFuture<HttpResult<String>> getAsync(String url, Map<String, String> params) {
+        return getAsync(url, params, null, -1, true, STRING_BODY_HANDLER);
     }
 
     /**
@@ -112,88 +110,119 @@ public class JdkHttpClientUtil {
      * @param fileName  文件名称 可以不传递
      * @param timeOut   超时时间 秒
      */
-    public static HttpResponse<Path> downLoad(String url, String directory, String fileName, int timeOut)
+    public static HttpResult<Path> downLoad(String url, String directory, String fileName, int timeOut)
             throws IOException, InterruptedException {
         HttpResponse.BodyHandler<Path> bodyHandler;
-        if (!Files.isDirectory(Path.of(directory))) {
+        Path path = Path.of(directory);
+        if (!Files.isDirectory(path)) {
             throw new RuntimeException("不是一个目录: " + directory);
         }
         if (fileName == null || fileName.isBlank()) {
-            bodyHandler = HttpResponse.BodyHandlers.ofFileDownload(Path.of(directory), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+            bodyHandler = HttpResponse.BodyHandlers.ofFileDownload(path, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
         } else {
             bodyHandler = HttpResponse.BodyHandlers.ofFile(Path.of(directory, fileName));
         }
-        return get(url, null, null, timeOut, false, bodyHandler);
+        return getWithoutGzip(url, null, null, timeOut, bodyHandler);
     }
 
-    /**
-     * 发送get请求，url和参数map的key及value不能urlEncode
-     *
-     * @param url                 请求地址
-     * @param params              请求参数map
-     * @param headers             请求头map
-     * @param timeOut             超时时间 秒
-     * @param gzip                启用gzip
-     * @param responseBodyHandler HttpResponse.BodyHandler
-     */
-    public static <T> HttpResponse<T> get(String url, Map<String, Object> params, Map<String,
-            String> headers, int timeOut, boolean gzip, HttpResponse.BodyHandler<T> responseBodyHandler)
+    public static <T> HttpResult<T> getWithGzip(String url, Map<String, String> params, Map<String,
+            String> headers, int timeOut, HttpResponse.BodyHandler<Supplier<T>> responseBodyHandler)
             throws IOException, InterruptedException {
+        HttpRequest request = ofGetHttpRequest(url, params, headers, timeOut, true);
+        HttpResponse<Supplier<T>> response = DEFAULT_HTTP_CLIENT.send(request, responseBodyHandler);
+        return HttpResult.fromSupplier(response);
+    }
 
-        HttpRequest request = ofGetHttpRequest(url, params, headers, timeOut, gzip);
-        return DEFAULT_HTTP_CLIENT.send(request, responseBodyHandler);
+    public static <T> HttpResult<T> getWithoutGzip(String url, Map<String, String> params, Map<String,
+            String> headers, int timeOut, HttpResponse.BodyHandler<T> responseBodyHandler)
+            throws IOException, InterruptedException {
+        HttpRequest request = ofGetHttpRequest(url, params, headers, timeOut, false);
+        HttpResponse<T> response = DEFAULT_HTTP_CLIENT.send(request, responseBodyHandler);
+        return new HttpResult<>(response.statusCode(), response.headers(), response.body());
     }
 
     /**
-     * 发送get异步请求，url和参数map的key及value不能urlEncode
+     * 发送get异步请求
      *
      * @param url                 请求地址
-     * @param params              请求参数map
+     * @param params              请求参数map,无需urlEncode
      * @param headers             请求头map
      * @param timeOut             超时时间 秒
      * @param gzip                启用gzip
      * @param responseBodyHandler HttpResponse.BodyHandler
      */
-    public static <T> CompletableFuture<HttpResponse<T>> getAsync(String url, Map<String, Object> params, Map<String,
-            String> headers, int timeOut, boolean gzip, HttpResponse.BodyHandler<T> responseBodyHandler) {
+    public static <T> CompletableFuture<HttpResult<T>> getAsync(String url, Map<String, String> params, Map<String,
+            String> headers, int timeOut, boolean gzip, HttpResponse.BodyHandler<Supplier<T>> responseBodyHandler) {
 
         HttpRequest request = ofGetHttpRequest(url, params, headers, timeOut, gzip);
-        return DEFAULT_HTTP_CLIENT.sendAsync(request, responseBodyHandler);
+        return DEFAULT_HTTP_CLIENT.sendAsync(request, responseBodyHandler)
+                .thenApply(HttpResult::fromSupplier);
     }
 
-    private static HttpRequest ofGetHttpRequest(String url, Map<String, Object> params, Map<String, String> headers,
+    /**
+     * 构造Get请求的HttpRequest
+     *
+     * @param url     请求地址
+     * @param params  请求参数map,无需urlEncode
+     * @param headers 请求头map
+     * @param timeOut 超时时间 秒
+     * @param gzip    启用gzip
+     * @return get请求的HttpRequest
+     */
+    private static HttpRequest ofGetHttpRequest(String url, Map<String, String> params, Map<String, String> headers,
                                                 int timeOut, boolean gzip) {
-        String strip = url.strip();
-        url = strip.endsWith("/") ? strip.substring(0, strip.length() - 1) : strip;
-        if(params == null){
-            params = new HashMap<>();
-        }
-        String q = "?";
-        String link = "&";
-        int i = url.indexOf(q);
-        if(i != -1 && i != url.length() -1){
-            String paramsStr = url.substring(i+1);
-            for(String s:paramsStr.split(link)){
-                String[] pair = s.split("=");
-                if(pair.length==2){
-                    params.put(pair[0], pair[1]);
-                }
-            }
-            url = url.substring(0,i);
-        }
+        Map<String, String> pMap = Optional.ofNullable(params)
+                // 改为HashMap,防止外部传入的是一个不可变Map
+                .map(HashMap::new)
+                .orElse(new HashMap<>());
+        String urlPrefix = Optional.of(url)
+                .map(String::strip)
+                .map(s -> s.split("\\?"))
+                .map(strings -> {
+                    if (strings.length > 2) {
+                        throw new RuntimeException("url中存在多个?:" + url);
+                    }
+                    if (strings.length == 2) {
+                        String paramStr = strings[1];
+                        if (paramStr.contains("=")) {
+                            Arrays.stream(paramStr.split("&"))
+                                    .map(s -> s.split("="))
+                                    .forEach(arr -> {
+                                        int length = arr.length;
+                                        String v;
+                                        if (length == 1) {
+                                            v = "";
+                                        } else if (length == 2) {
+                                            v = arr[1];
+                                        } else {
+                                            throw new RuntimeException("解析错误:" + paramStr);
+                                        }
+                                        pMap.put(arr[0], v);
+                                    });
+                        } else {
+                            // 存在没有=的情况,一般用作特殊用途,添加=反而会有问题
+                            // 此时params的Map正常情况是不需要传递参数的
+                            strings[1] = URLEncoder.encode(paramStr, StandardCharsets.UTF_8);
+                            return String.join("?", strings);
+                        }
+                    }
+                    return strings[0];
+                })
+                .orElseThrow();
 
-        String queryStr = mapToQueryString(params, true);
-        if (!queryStr.isEmpty()) {
-            String prefix = "";
-            if (!url.endsWith(q) && !url.endsWith(link)) {
-                prefix = q;
-                if (url.contains(q)) {
-                    prefix = link;
-                }
-            }
-            url += prefix + queryStr;
-        }
-        return ofHttpRequestBuilder(url, headers, timeOut, gzip).build();
+        String urlWithParam = Optional.of(pMap)
+                .filter(m -> !m.isEmpty())
+                .map(m -> m.entrySet()
+                        .stream()
+                        .map(entry -> {
+                            String value = Optional.ofNullable(entry.getValue())
+                                    .map(s -> URLEncoder.encode(s, StandardCharsets.UTF_8))
+                                    .orElse("");
+                            return String.join("=", URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8), value);
+                        })
+                        .collect(Collectors.joining("&", urlPrefix + "?", "")))
+                .orElse(urlPrefix);
+        return ofHttpRequestBuilder(urlWithParam, headers, timeOut, gzip).build();
     }
 
 
@@ -204,8 +233,8 @@ public class JdkHttpClientUtil {
      * @param url  请求地址
      * @param json json数据 可以为null
      */
-    public static HttpResponse<String> postJson(String url, String json) throws IOException, InterruptedException {
-        return post(url, null, json, null, null, -1, true, compressedBodyHandler);
+    public static HttpResult<String> postJson(String url, String json) throws IOException, InterruptedException {
+        return post(url, null, json, null, null, -1, true, STRING_BODY_HANDLER);
     }
 
     /**
@@ -215,8 +244,8 @@ public class JdkHttpClientUtil {
      * @param url  请求地址
      * @param json json数据 可以为null
      */
-    public static CompletableFuture<HttpResponse<String>> postJsonAsync(String url, String json) {
-        return postAsync(url, null, json, null, null, -1, true, compressedBodyHandler);
+    public static CompletableFuture<HttpResult<String>> postJsonAsync(String url, String json) {
+        return postAsync(url, null, json, null, null, -1, true, STRING_BODY_HANDLER);
     }
 
     /**
@@ -226,8 +255,8 @@ public class JdkHttpClientUtil {
      * @param url     请求地址
      * @param formMap map参数
      */
-    public static HttpResponse<String> postFormData(String url, Map<String, Object> formMap) throws IOException, InterruptedException {
-        return post(url, formMap, null, null, null, -1, true, compressedBodyHandler);
+    public static HttpResult<String> postFormData(String url, Map<String, String> formMap) throws IOException, InterruptedException {
+        return post(url, formMap, null, null, null, -1, true, STRING_BODY_HANDLER);
     }
 
     /**
@@ -237,8 +266,8 @@ public class JdkHttpClientUtil {
      * @param url     请求地址
      * @param formMap map参数
      */
-    public static CompletableFuture<HttpResponse<String>> postFormDataAsync(String url, Map<String, Object> formMap) {
-        return postAsync(url, formMap, null, null, null, -1, true, compressedBodyHandler);
+    public static CompletableFuture<HttpResult<String>> postFormDataAsync(String url, Map<String, String> formMap) {
+        return postAsync(url, formMap, null, null, null, -1, true, STRING_BODY_HANDLER);
     }
 
     /**
@@ -247,7 +276,7 @@ public class JdkHttpClientUtil {
      * @param url 请求地址
      * @param map map的key为字段名; value:若是文件为Path类型,若为普通字段是基本类型
      */
-    public static HttpResponse<String> postMultipart(String url, Map<String, Object> map) throws IOException, InterruptedException {
+    public static HttpResult<String> postMultipart(String url, Map<String, Object> map) throws IOException, InterruptedException {
         return postMultipart(url, map, -1);
     }
 
@@ -258,9 +287,9 @@ public class JdkHttpClientUtil {
      * @param map     map的key为字段名; value:若是文件为Path类型,若为普通字段是基本类型
      * @param timeOut 超时时间 秒
      */
-    public static HttpResponse<String> postMultipart(String url, Map<String, Object> map, int timeOut) throws IOException,
+    public static HttpResult<String> postMultipart(String url, Map<String, Object> map, int timeOut) throws IOException,
             InterruptedException {
-        return post(url, null, null, map, null, timeOut, true, compressedBodyHandler);
+        return post(url, null, null, map, null, timeOut, true, STRING_BODY_HANDLER);
     }
 
     /**
@@ -270,8 +299,8 @@ public class JdkHttpClientUtil {
      * @param map     map的key为字段名; value:若是文件为Path类型,若为普通字段是基本类型
      * @param timeOut 超时时间 秒
      */
-    public static CompletableFuture<HttpResponse<String>> postMultipartAsync(String url, Map<String, Object> map, int timeOut) {
-        return postAsync(url, null, null, map, null, timeOut, true, compressedBodyHandler);
+    public static CompletableFuture<HttpResult<String>> postMultipartAsync(String url, Map<String, Object> map, int timeOut) {
+        return postAsync(url, null, null, map, null, timeOut, true, STRING_BODY_HANDLER);
     }
 
     /**
@@ -286,11 +315,12 @@ public class JdkHttpClientUtil {
      * @param gzip                启用gzip
      * @param responseBodyHandler responseBodyHandler
      */
-    public static <T> HttpResponse<T>
-    post(String url, Map<String, Object> formDataMap, String json, Map<String, Object> multipartMap, Map<String, String> headers,
-         int timeOut, boolean gzip, HttpResponse.BodyHandler<T> responseBodyHandler) throws IOException, InterruptedException {
+    public static <T> HttpResult<T>
+    post(String url, Map<String, String> formDataMap, String json, Map<String, Object> multipartMap, Map<String, String> headers,
+         int timeOut, boolean gzip, HttpResponse.BodyHandler<Supplier<T>> responseBodyHandler) throws IOException, InterruptedException {
         HttpRequest request = ofPostHttpRequest(url, formDataMap, json, multipartMap, headers, timeOut, gzip);
-        return DEFAULT_HTTP_CLIENT.send(request, responseBodyHandler);
+        HttpResponse<Supplier<T>> response = DEFAULT_HTTP_CLIENT.send(request, responseBodyHandler);
+        return HttpResult.fromSupplier(response);
     }
 
     /**
@@ -305,52 +335,69 @@ public class JdkHttpClientUtil {
      * @param gzip                启用gzip
      * @param responseBodyHandler responseBodyHandler
      */
-    public static <T> CompletableFuture<HttpResponse<T>>
-    postAsync(String url, Map<String, Object> formDataMap, String json, Map<String, Object> multipartMap, Map<String, String> headers,
-              int timeOut, boolean gzip, HttpResponse.BodyHandler<T> responseBodyHandler) {
+    public static <T> CompletableFuture<HttpResult<T>>
+    postAsync(String url, Map<String, String> formDataMap, String json, Map<String, Object> multipartMap, Map<String, String> headers,
+              int timeOut, boolean gzip, HttpResponse.BodyHandler<Supplier<T>> responseBodyHandler) {
         HttpRequest request = ofPostHttpRequest(url, formDataMap, json, multipartMap, headers, timeOut, gzip);
-        return DEFAULT_HTTP_CLIENT.sendAsync(request, responseBodyHandler);
+        return DEFAULT_HTTP_CLIENT.sendAsync(request, responseBodyHandler).thenApply(HttpResult::fromSupplier);
     }
 
+    /**
+     * 从ContentType值中解析出Charset
+     * 若ContentType值中无charset 则返回UTF_8
+     */
+    private static Charset charsetFromContentTypeValue(String contentTypeValue) {
+        // 参考自HttpResponse.BodyHandlers.ofString()
+        return Optional.ofNullable(contentTypeValue)
+                .map(s -> s.split(";"))
+                .flatMap(strings -> Arrays.stream(strings).filter(s -> s.toLowerCase().contains("charset")).findFirst())
+                .map(s -> s.split("="))
+                .filter(strings -> strings.length == 2)
+                .map(strings -> Charset.forName(strings[1].strip()))
+                .orElse(StandardCharsets.UTF_8);
+    }
 
-    private static HttpRequest ofPostHttpRequest(String url, Map<String, Object> formDataMap, String json, Map<String, Object> multipartMap,
+    private static HttpRequest ofPostHttpRequest(String url, Map<String, String> formDataMap, String json, Map<String, Object> multipartMap,
                                                  Map<String, String> headers, int timeOut, boolean gzip) {
         boolean formDataMapNotNull = formDataMap != null && !formDataMap.isEmpty();
         boolean jsonNotNull = json != null && !json.isBlank();
         boolean multipartMapNotNull = multipartMap != null && !multipartMap.isEmpty();
 
-        if ((formDataMapNotNull ? 1 : 0) + (jsonNotNull ? 1 : 0) + (multipartMapNotNull ? 1 : 0) > 1) {
+        long count = Stream.of(formDataMapNotNull, jsonNotNull, multipartMapNotNull)
+                .filter(Boolean::booleanValue)
+                .count();
+        if (count > 1) {
             throw new RuntimeException("发送post请求时,无法判断要发送哪种请求类型!");
         }
 
-        String contentTypeValue = null;
+        TreeMap<String, String> headerTreeMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         if (headers != null) {
-            List<String> contentList = headers.keySet().stream().filter(k -> CONTENT_TYPE.equalsIgnoreCase(k.strip())).collect(Collectors.toList());
-            if (contentList.size() > 1) {
-                throw new RuntimeException("请求头内不能传递多个ContentType!");
+            headerTreeMap.putAll(headers);
+        }
+        Optional<String> ContentTypeValueOptional = Optional.ofNullable(headerTreeMap.get(CONTENT_TYPE))
+                .filter(Predicate.not(String::isBlank));
+        String contentTypeValue = ContentTypeValueOptional.orElse("application/json; charset=UTF-8");
+        HttpRequest.BodyPublisher bodyPublisher;
+        if (count == 0) {
+            // 可以没有body
+            bodyPublisher = HttpRequest.BodyPublishers.noBody();
+        } else {
+            if (jsonNotNull) {
+                Charset charset = charsetFromContentTypeValue(contentTypeValue);
+                bodyPublisher = HttpRequest.BodyPublishers.ofString(json, charset);
+            } else if (formDataMapNotNull) {
+                contentTypeValue = ContentTypeValueOptional.orElse("application/x-www-form-urlencoded; charset=UTF-8");
+                bodyPublisher = HttpRequest.BodyPublishers.ofString(mapToQueryString(formDataMap));
+            } else if (multipartMapNotNull) {
+                String boundary = BOUNDARY_PREFIX + UUID.randomUUID().toString().replace("-", "");
+                contentTypeValue = "multipart/form-data; boundary=" + boundary;
+                bodyPublisher = ofMimeMultipartBodyPublisher(multipartMap, boundary);
+            } else {
+                throw new RuntimeException("不支持的类型");
             }
-            if (!contentList.isEmpty()) {
-                String k = contentList.get(0);
-                contentTypeValue = headers.get(k);
-                headers.remove(k);
-            }
         }
-
-        contentTypeValue = contentTypeValue != null && !contentTypeValue.isBlank() ? contentTypeValue : jsonNotNull ? "application/json; charset=UTF-8"
-                : formDataMapNotNull ? "application/x-www-form-urlencoded; charset=UTF-8" : null;
-        HttpRequest.BodyPublisher bodyPublisher = !(jsonNotNull || formDataMapNotNull) ? HttpRequest.BodyPublishers.noBody()
-                : HttpRequest.BodyPublishers.ofString(jsonNotNull ? json : mapToQueryString(formDataMap, true));
-
-        if (multipartMapNotNull) {
-            String boundary = BOUNDARY_PREFIX + UUID.randomUUID().toString().replace("-", "");
-            contentTypeValue = "multipart/form-data; boundary=" + boundary;
-            bodyPublisher = ofMimeMultipartBodyPublisher(multipartMap, boundary);
-        }
-
-        HttpRequest.Builder builder = ofHttpRequestBuilder(url, headers, timeOut, gzip);
-        if (contentTypeValue != null && !contentTypeValue.isBlank()) {
-            builder.setHeader(CONTENT_TYPE, contentTypeValue.strip());
-        }
+        headerTreeMap.put(CONTENT_TYPE, contentTypeValue);
+        HttpRequest.Builder builder = ofHttpRequestBuilder(url, headerTreeMap, timeOut, gzip);
         return builder.POST(bodyPublisher).build();
     }
 
@@ -382,28 +429,14 @@ public class JdkHttpClientUtil {
      */
     private static HttpRequest.Builder ofHttpRequestBuilder(String url, Map<String, String> headers, int timeOut, boolean gzip) {
         HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(url));
-        if (gzip) {
-            String acceptEncodingValue = null;
-            if (headers != null) {
-                List<String> contentList = headers.keySet().stream()
-                        .filter(k -> ACCEPT_ENCODING.equalsIgnoreCase(k.strip()))
-                        .collect(Collectors.toList());
-                if (contentList.size() > 1) {
-                    throw new RuntimeException("请求头内不能传递多个AcceptEncoding!");
-                }
-                if (!contentList.isEmpty()) {
-                    String k = contentList.get(0);
-                    acceptEncodingValue = headers.get(k);
-                    headers.remove(k);
-                }
-            }
-            acceptEncodingValue = acceptEncodingValue != null && !acceptEncodingValue.isBlank() ? acceptEncodingValue : GZIP;
-            builder.setHeader(ACCEPT_ENCODING, acceptEncodingValue.strip());
-        }
-
+        TreeMap<String, String> headerTreeMap = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         if (headers != null) {
-            headers.forEach(builder::setHeader);
+            headerTreeMap.putAll(headers);
         }
+        if (gzip) {
+            headerTreeMap.put(ACCEPT_ENCODING, GZIP);
+        }
+        headerTreeMap.forEach(builder::setHeader);
         builder.timeout(Duration.ofSeconds(timeOut > 0 ? timeOut : REQUEST_TIMEOUT_SECOND));
         return builder;
     }
@@ -413,26 +446,20 @@ public class JdkHttpClientUtil {
      * 参数map转请求字符串
      * 若map为null返回 空字符串""
      *
-     * @param map       参数map
-     * @param urlEncode 是否进行UrlEncode编码(UTF-8)
+     * @param params 参数map
      */
-    private static String mapToQueryString(Map<String, Object> map, boolean urlEncode) {
-        if (map == null || map.isEmpty()) {
-            return "";
-        }
-        StringBuilder sb = new StringBuilder();
-        map.forEach((k, v) -> {
-            if (sb.length() > 0) {
-                sb.append("&");
-            }
-            String name = k.strip();
-            String value = String.valueOf(v).strip();
-            if (urlEncode) {
-                value = URLEncoder.encode(value, StandardCharsets.UTF_8);
-            }
-            sb.append(name).append("=").append(value);
-        });
-        return sb.toString();
+    private static String mapToQueryString(Map<String, String> params) {
+        return Optional.ofNullable(params)
+                .map(m -> m.entrySet()
+                        .stream()
+                        .map(entry -> {
+                            String value = Optional.ofNullable(entry.getValue())
+                                    .map(s -> URLEncoder.encode(s, StandardCharsets.UTF_8))
+                                    .orElse("");
+                            return String.join("=", entry.getKey(), value);
+                        })
+                        .collect(Collectors.joining("&")))
+                .orElse("");
     }
 
     /**
@@ -442,32 +469,35 @@ public class JdkHttpClientUtil {
      * @param boundary 边界
      */
     private static HttpRequest.BodyPublisher ofMimeMultipartBodyPublisher(Map<String, Object> map, String boundary) {
-        var byteArrays = new ArrayList<byte[]>();
         byte[] separator = ("--" + boundary + "\r\nContent-Disposition: form-data; name=").getBytes(StandardCharsets.UTF_8);
-        map.forEach((k, v) -> {
-            byteArrays.add(separator);
-            if (v instanceof Path) {
-                Path path = (Path) v;
-                String mimeType;
-                try {
-                    mimeType = Files.probeContentType(path);
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-                mimeType = mimeType == null || mimeType.isBlank() ? "application/octet-stream" : mimeType;
+        List<byte[]> byteArrays = map.entrySet()
+                .stream()
+                .flatMap(entry -> {
+                    String k = entry.getKey();
+                    Object v = entry.getValue();
 
-                byteArrays.add(("\"" + k + "\"; filename=\"" + path.getFileName()
-                        + "\"\r\nContent-Type: " + mimeType + "\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-                try {
-                    byteArrays.add(Files.readAllBytes(path));
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-                byteArrays.add("\r\n".getBytes(StandardCharsets.UTF_8));
-            } else {
-                byteArrays.add(("\"" + k + "\"\r\n\r\n" + v + "\r\n").getBytes(StandardCharsets.UTF_8));
-            }
-        });
+                    if (v instanceof Path path) {
+                        String mimeType;
+                        try {
+                            mimeType = Files.probeContentType(path);
+                        } catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                        mimeType = mimeType == null || mimeType.isBlank() ? "application/octet-stream" : mimeType;
+                        byte[] fileInfoArr = ("\"" + k + "\"; filename=\"" + path.getFileName()
+                                + "\"\r\nContent-Type: " + mimeType + "\r\n\r\n").getBytes(StandardCharsets.UTF_8);
+                        byte[] fileArr;
+                        try {
+                            fileArr = Files.readAllBytes(path);
+                        } catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                        return Stream.of(separator, fileInfoArr, fileArr, "\r\n".getBytes(StandardCharsets.UTF_8));
+                    } else {
+                        return Stream.of(separator, ("\"" + k + "\"\r\n\r\n" + v + "\r\n").getBytes(StandardCharsets.UTF_8));
+                    }
+                })
+                .collect(Collectors.toList());
         byteArrays.add(("--" + boundary + "--").getBytes(StandardCharsets.UTF_8));
         return HttpRequest.BodyPublishers.ofByteArrays(byteArrays);
     }
@@ -488,7 +518,7 @@ public class JdkHttpClientUtil {
     private static final HttpClient DEFAULT_HTTP_CLIENT = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECOND))
             // 版本 默认http2,不支持会自动降级
-            .version(HttpClient.Version.HTTP_1_1)
+//            .version(HttpClient.Version.HTTP_1_1)
             // 设置支持不安全的https
             //　.sslContext(ofUnsafeSslContext())
             // 重定向
@@ -570,7 +600,12 @@ public class JdkHttpClientUtil {
     }
 
     /**
-     * 处理压缩的BodyHandler
+     * 处理了gzip情况的String BodyHandler
+     */
+    private static final HttpResponse.BodyHandler<Supplier<String>> STRING_BODY_HANDLER = gzipBodyHandler(String::new);
+
+    /**
+     * 处理gzip压缩的BodyHandler
      * <br/><br/>
      * 注意:即使本httpClient请求头携带了Accept-Encoding: gzip头信息,服务器也可能不返回Content-Encoding: gzip头信息
      * <br/>
@@ -582,311 +617,51 @@ public class JdkHttpClientUtil {
      * <br/>
      * 因此如果要测试gzip 建议访问github.com,经测试此网址用本httpClient访问可以返回Content-Encoding: gzip
      */
-    private static final HttpResponse.BodyHandler<String> compressedBodyHandler = responseInfo -> {
-        Map<String, List<String>> headersMap = responseInfo.headers().map();
-        List<String> gzipList = new ArrayList<>();
-        AtomicReference<String> typeAtomic = new AtomicReference<>();
-        headersMap.forEach((k, values) -> {
-            String s = k.strip();
-            if (CONTENT_ENCODING.equalsIgnoreCase(s)) {
-                gzipList.addAll(values.stream().map(String::toLowerCase).collect(Collectors.toList()));
-            }
-            if (CONTENT_TYPE.equalsIgnoreCase(s)) {
-                typeAtomic.set(values.stream().findFirst().orElse("text/html; charset=utf-8"));
-            }
-        });
-        // 参考自HttpResponse.BodyHandlers.ofString()
-        String type = typeAtomic.get();
-        Charset charset = null;
-        try {
-            int i = type.indexOf(";");
-            if (i >= 0) {
-                type = type.substring(i + 1);
-            }
-            int index = type.indexOf("=");
-            if (index >= 0 && type.toLowerCase().contains("charset")) {
-                charset = Charset.forName(type.substring(index + 1));
-            }
-        } catch (Throwable x) {
-            x.printStackTrace();
-        }
-        charset = charset == null ? StandardCharsets.UTF_8 : charset;
-        if (gzipList.contains(GZIP)) {
-            Charset finalCharset = charset;
-            /*
-             * 此处存在一个java11的bug,在java13中已修复
-             * 参考链接 https://stackoverflow.com/questions/64447837/how-to-consume-an-inputstream-in-an-httpresponse-bodyhandler
-             * 在java11环境下,若在此使用ofInputStream(),永远不会从流中读取任何数据，并且永远挂起
-             * 因此这里暂时使用HttpResponse.BodySubscribers.ofByteArray()
-             * */
+    private static <T> HttpResponse.BodyHandler<Supplier<T>> gzipBodyHandler(BiFunction<byte[], Charset, T> function) {
+        return responseInfo -> {
+            Map<String, List<String>> headerMap = responseInfo.headers().map()
+                    .entrySet()
+                    .stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey,
+                            entry -> entry.getValue().stream().map(String::toLowerCase).toList(),
+                            (strings, strings2) -> strings,
+                            () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER)
+                    ));
+            Charset charset = headerMap.getOrDefault(CONTENT_TYPE, List.of("text/html; charset=utf-8"))
+                    .stream()
+                    .findFirst()
+                    .map(HttpUtil::charsetFromContentTypeValue)
+                    .orElseThrow();
             return HttpResponse.BodySubscribers.mapping(HttpResponse.BodySubscribers.ofByteArray(),
-                    byteArray -> {
-                        try (ByteArrayOutputStream os = new ByteArrayOutputStream();
-                             InputStream is = new GZIPInputStream(new ByteArrayInputStream(byteArray))) {
-                            is.transferTo(os);
-                            return new String(os.toByteArray(), finalCharset);
-                        } catch (IOException e) {
-                            throw new UncheckedIOException(e);
+                    byteArray -> () -> {
+                        boolean isGzip = headerMap.getOrDefault(CONTENT_ENCODING, List.of()).contains(GZIP);
+                        if (isGzip) {
+                            try (ByteArrayOutputStream os = new ByteArrayOutputStream();
+                                 InputStream is = new GZIPInputStream(new ByteArrayInputStream(byteArray))) {
+                                is.transferTo(os);
+                                // os.toByteArray()存在复制
+                                return function.apply(os.toByteArray(), charset);
+                            } catch (IOException e) {
+                                throw new UncheckedIOException(e);
+                            }
+                        } else {
+                            return function.apply(byteArray, charset);
                         }
                     });
-        }
-        return HttpResponse.BodySubscribers.ofString(charset);
-    };
-
-
-    public static void main(String[] args) {
-
-//        try {
-//            HttpResponse<String> stringHttpResponse = postFormData("http://127.0.0.1:8089/api/file/testDate", Map.of("date","2021-01-29 10:07:25"));
-//            System.out.println(stringHttpResponse.body());
-//            HttpResponse<String> res = postFormData("http://127.0.0.1:8089/api/file/testLocalDateTime", Map.of("date","2021-01-29 10:07:25"));
-//            System.out.println(res.body());
-//        } catch (IOException | InterruptedException e) {
-//            e.printStackTrace();
-//        }
-
-//        // 测试get请求
-//        List<String> getList = new ArrayList<>();
-//        getList.add("https://github.com/");
-//        getList.add("https://github.com  ");
-//        getList.add("https://github.com?");
-//        getList.add("https://github.com?name=哈哈");
-//        getList.forEach(url -> {
-//            HttpResponse<String> response;
-//            try {
-//                response = get(url);
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//                throw new RuntimeException(e);
-//            }
-//            if (response.statusCode() != 200) {
-//                throw new RuntimeException("响应状态码有误:" + response.statusCode());
-//            }
-//            boolean gzipFlag = response.headers().map().keySet().stream().anyMatch(k -> CONTENT_ENCODING.equalsIgnoreCase(k.strip()));
-//            if (!gzipFlag) {
-//                throw new RuntimeException("测试gzip出现错误");
-//            }
-//            String body = response.body();
-//            if (body == null || body.isBlank()) {
-//                throw new RuntimeException("body为空");
-//            }
-//        });
-//
-//        // https://httpbin.org一个在线测试请求的网址
-//        // 这里我们使用docker在本地自己起一个服务进行测试
-//        // docker run -p 8099:80 kennethreitz/httpbin
-//        getList.clear();
-//        String nameKey = "name";
-//        String nameValue = "哈哈";
-//        String ageKey = "age";
-//        int ageValue = 20;
-//        String baseUrl = "http://localhost:8099";
-//        String a = baseUrl + "/get";
-//        getList.add(a);
-//        String b = a + "?" + nameKey + "=" + nameValue;
-//        getList.add(b);
-//        getList.add(b + "& ");
-//        Map<String, Object> map = new HashMap<>();
-//        map.put(ageKey, ageValue);
-//        map.put("ceshi ", "嘎嘎 ");
-//        getList.forEach(url -> {
-//            HttpResponse<String> response;
-//            try {
-//                response = get(url, map);
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//                throw new RuntimeException(e);
-//            }
-//            if (response.statusCode() != 200) {
-//                throw new RuntimeException("响应状态码有误:" + response.statusCode());
-//            }
-//            String body = response.body();
-//            if (body == null || body.isBlank()) {
-//                throw new RuntimeException("body为空");
-//            }
-//            System.out.println(body);
-//        });
-//
-//        // 测试post请求
-//        String url = "http://localhost:8089/login";
-//        String json = "{\"username\":\"admin\",\"password\":\"123456\"}";
-//        HttpResponse<String> response = null;
-//        try {
-//            response = postJson(url, json);
-//        } catch (Exception e) {
-//            throw new RuntimeException(e);
-//        }
-//        System.out.println(response.body());
-//        // 测试可以不传递requestBody
-//        try {
-//            System.out.println(postJson(url, null).body());
-//        } catch (Exception e) {
-//            throw new RuntimeException(e);
-//        }
-//
-//
-//        // 测试上传文件
-//        Map<String, Object> multiMap = new HashMap<>();
-//        multiMap.put("file", Path.of("/home/smile/MyApp.log"));
-//        try {
-//            System.out.println(postMultipart("http://127.0.0.1:8089/file/richUpload", multiMap).body());
-//        } catch (Exception e) {
-//            throw new RuntimeException(e);
-//        }
-//
-//        // 测试formData
-//        Map<String, Object> formData = new HashMap<>();
-//        formData.put(nameKey, nameValue);
-//        formData.put(ageKey, ageValue);
-//        HttpResponse<String> stringHttpResponse = null;
-//        try {
-//            stringHttpResponse = postFormData("http://localhost:8089/file/formData", formData);
-//        } catch (Exception e) {
-//            throw new RuntimeException(e);
-//        }
-//        System.out.println(stringHttpResponse.body());
-
-        // 测试下载文件
-        // 自定义文件名
-//        HttpResponse<Path> pathHttpResponse =
-//                downLoad("https://imeres.baidu.com/imeres/ime-res/guanwang/img/Ubuntu_Deepin-fcitx-baidupinyin-64.zip",
-//                        "/home/smile/Desktop", "baidupinyin.zip", -1);
-//        // 使用服务器响应头的文件名
-//        downLoad("https://github-production-release-asset-2e65be.s3.amazonaws.com/51275984/21505a00-2879-11eb-932d-23414b5af06f?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIWNJYAX4CSVEH53A%2F20210112%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20210112T065839Z&X-Amz-Expires=300&X-Amz-Signature=40f12c96b81ddbefac4d739adb50769eaeaf443728444d42158c524c2de3e2ee&X-Amz-SignedHeaders=host&actor_id=34903735&key_id=0&repo_id=51275984&response-content-disposition=attachment%3B%20filename%3DLuma3DSv10.2.1.zip&response-content-type=application%2Foctet-stream",
-//                "/home/smile/Desktop", null, -1);
-
-        // 测试使用的是http2
-//        try {
-//            HttpResponse<String> http2Response = get("https://http2.akamai.com/demo");
-//            System.out.println(http2Response.version());
-//            if (!http2Response.version().equals(HttpClient.Version.HTTP_2)) {
-//                throw new RuntimeException("测试http2失败");
-//            }
-//        } catch (Exception e) {
-//            throw new RuntimeException(e);
-//        }
-
-        // 测试不安全的https链接
-//        String httpsUrl = "https://127.0.0.1:8443";
-//        try {
-//            HttpResponse<String> unSafeSslRes = get(httpsUrl);
-//            System.out.println(unSafeSslRes.body());
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-
-//        // 测试webSocket
-//        Map<String, String> headers = new HashMap<>();
-//        // 额外的请求头 这里传递http验证的token,供第一次建立链接的时候使用
-//        headers.put("Authorization", "Bearer token值");
-//        CompletableFuture<WebSocket> socketFuture = webSocket("ws://localhost:8089/ws/asset", headers, new WebSocket.Listener() {
-//            @Override
-//            public void onOpen(WebSocket webSocket) {
-//                System.out.println("建立了链接");
-//                WebSocket.Listener.super.onOpen(webSocket);
-//            }
-//
-//            @Override
-//            public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
-//                System.out.println("onText:" + data);
-//                return WebSocket.Listener.super.onText(webSocket, data, last);
-//            }
-//
-////            @Override
-////            public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer data, boolean last) {
-////                return null;
-////            }
-////
-////            @Override
-////            public CompletionStage<?> onPing(WebSocket webSocket, ByteBuffer message) {
-////                return null;
-////            }
-////
-////            @Override
-////            public CompletionStage<?> onPong(WebSocket webSocket, ByteBuffer message) {
-////                return null;
-////            }
-//
-//            @Override
-//            public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
-//                System.out.println(statusCode);
-//                System.out.println(reason);
-//                return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
-//            }
-//
-//            @Override
-//            public void onError(WebSocket webSocket, Throwable error) {
-//                error.printStackTrace();
-//
-//            }
-//        });
-//
-//        socketFuture.whenComplete((webSocket, throwable) -> {
-//            if (throwable != null) {
-//                throwable.printStackTrace();
-//            }
-//            webSocket.sendText("hello", true);
-//            // sendClose()使用原因码向服务器发送关闭消息。此方法不会关闭连接，而只是启动适当的连接关闭。通常，服务器在收到关闭消息后关闭连接。
-//            webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "ok");
-//
-//            // abort则是立即强行关闭WebSocket连接
-//            // webSocket.abort();
-//        });
-//
-//        try {
-//            Thread.sleep(60000);
-//        } catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
-
-//        // http/2服务器推送示例代码
-//        // /indexWithPush不仅发回HTML页面，而且还发回页面上引用的图片
-//        // 为了处理这些资源，应用程序必须实现该PushPromiseHandler接口，然后将该实现的实例作为第三个参数传递给send()or sendAsync()方法
-//        HttpRequest request = HttpRequest.newBuilder()
-//                .GET().uri(URI.create("https://localhost:8443/indexWithPush"))
-//                .build();
-//
-//        var asyncRequests = new CopyOnWriteArrayList<CompletableFuture<Void>>();
-//
-//        HttpResponse.PushPromiseHandler<byte[]> pph = (initial, pushRequest, acceptor) -> {
-//            CompletableFuture<Void> cf = acceptor.apply(HttpResponse.BodyHandlers.ofByteArray())
-//                    .thenAccept(response -> {
-//                        System.out.println("Got pushed resource: " + response.uri());
-//                        System.out.println("Body: " + Arrays.toString(response.body()));
-//                    });
-//            asyncRequests.add(cf);
-//        };
-//
-//        DEFAULT_HTTP_CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofByteArray(), pph)
-//                .thenApply(HttpResponse::body)
-//                .thenAccept(System.out::println)
-//                .join();
-//
-//        // block calling thread for demo purposes
-//        asyncRequests.forEach(CompletableFuture::join);
-
-//        HttpResponse<String> stringHttpResponse = null;
-//        try {
-//            stringHttpResponse = JdkHttpClientUtil.get("http://localhost:8099/get?aa=哈哈 ,谢谢");
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        } catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
-//        System.out.println(stringHttpResponse.body());
-//
-//
-//        try {
-//            HttpResponse<String> stringHttpResponse1 = JdkHttpClientUtil.get("http://localhost:8089/api/file/testHttp?name=你好  呵呵,");
-//            System.out.println(stringHttpResponse1.body());
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        } catch (InterruptedException e) {
-//            e.printStackTrace();
-//        }
-
-
+        };
     }
 
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class HttpResult<T> {
+        private int statusCode;
+        private HttpHeaders httpHeaders;
+        private T body;
+
+        public static <T> HttpResult<T> fromSupplier(HttpResponse<Supplier<T>> httpResponse) {
+            return new HttpResult<>(httpResponse.statusCode(), httpResponse.headers(), httpResponse.body().get());
+        }
+    }
 
 }
